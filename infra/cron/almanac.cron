@@ -1,0 +1,10 @@
+# Almanac scheduled jobs — installed via `crontab -e` on the EC2 host.
+# All schedule logic lives in routes/console.php; the cron only fires the
+# Laravel scheduler every minute.
+
+* * * * * cd /var/www/almanac/current && php artisan schedule:run >> /var/log/almanac/schedule.log 2>&1
+
+# Daily logical Postgres backup at 04:00 UTC. Restore-test cron runs the
+# first of each month at 05:00 UTC.
+0 4 * * * pg_dump -h 127.0.0.1 -U almanac almanac | gzip > /var/backups/almanac/almanac-$(date +\%Y\%m\%d).sql.gz
+0 5 1 * * /var/www/almanac/current/scripts/backup-restore-test.sh

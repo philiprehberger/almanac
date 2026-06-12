@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "deploys-channel-thread.md",
+    "external_id": "slk_deploys_thread_1",
+    "title": "#deploys — release announcement thread",
+    "source_url": "https://slack.example.com/archives/deploys/p1234567890",
+    "modified_at": "2025-06-01T12:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "incidents-channel-thread.md",
+    "external_id": "slk_incidents_thread_1",
+    "title": "#incidents — recent thread",
+    "source_url": "https://slack.example.com/archives/incidents/p1234567891",
+    "modified_at": "2025-05-25T19:30:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "hr-faq-channel.md",
+    "external_id": "slk_hr_faq_thread",
+    "title": "#hr-faq — common questions",
+    "source_url": "https://slack.example.com/archives/hr-faq/p1234567892",
+    "modified_at": "2025-04-10T10:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  }
+]

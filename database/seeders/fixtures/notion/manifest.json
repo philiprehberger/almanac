@@ -1,0 +1,62 @@
+[
+  {
+    "filename": "engineering-style-guide.md",
+    "external_id": "ntn_eng_style",
+    "title": "Engineering Style Guide",
+    "source_url": "https://notion.so/p/eng_style_guide",
+    "modified_at": "2025-04-12T10:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "interview-process.md",
+    "external_id": "ntn_interview_process",
+    "title": "Interview Process",
+    "source_url": "https://notion.so/p/interview_process",
+    "modified_at": "2025-02-18T14:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  },
+  {
+    "filename": "contractor-onboarding.md",
+    "external_id": "ntn_contractor_onboarding",
+    "title": "Contractor Onboarding",
+    "source_url": "https://notion.so/p/contractor_onboarding",
+    "modified_at": "2025-03-22T09:30:00Z",
+    "acls": [
+      {"kind": "group", "id": "contractors@example.com"}
+    ]
+  },
+  {
+    "filename": "product-roadmap-summary.md",
+    "external_id": "ntn_roadmap",
+    "title": "Product Roadmap Summary",
+    "source_url": "https://notion.so/p/roadmap",
+    "modified_at": "2025-05-30T15:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  },
+  {
+    "filename": "support-escalation-paths.md",
+    "external_id": "ntn_support_escalation",
+    "title": "Support Escalation Paths",
+    "source_url": "https://notion.so/p/support_escalation",
+    "modified_at": "2025-04-04T11:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "support@example.com"}
+    ]
+  },
+  {
+    "filename": "injection-bait-notion.md",
+    "external_id": "ntn_injection_bait",
+    "title": "Customer Note Archive (with injection bait)",
+    "source_url": "https://notion.so/p/injection_bait",
+    "modified_at": "2025-06-02T14:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  }
+]

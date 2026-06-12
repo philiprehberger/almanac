@@ -1,0 +1,124 @@
+[
+  {
+    "filename": "pto-policy-2025.md",
+    "external_id": "drv_pto_policy_2025",
+    "title": "PTO Policy 2025",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/pto_policy_2025/view",
+    "modified_at": "2025-03-15T10:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  },
+  {
+    "filename": "employee-handbook-section-4.md",
+    "external_id": "drv_handbook_s4",
+    "title": "Employee Handbook §4 — Benefits",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/handbook_s4/view",
+    "modified_at": "2025-01-20T09:30:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  },
+  {
+    "filename": "engineering-on-call-runbook.md",
+    "external_id": "drv_oncall_runbook",
+    "title": "Engineering On-Call Runbook",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/oncall_runbook/view",
+    "modified_at": "2025-05-04T16:20:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "engineering-deploy-process.md",
+    "external_id": "drv_deploy_process",
+    "title": "Engineering Deploy Process",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/deploy_process/view",
+    "modified_at": "2025-04-22T11:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "engineering-incident-template.md",
+    "external_id": "drv_incident_template",
+    "title": "Engineering Incident Template",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/incident_template/view",
+    "modified_at": "2025-02-11T14:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "customer-security-escalation.md",
+    "external_id": "drv_security_escalation",
+    "title": "Customer Security Issue Escalation",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/security_escalation/view",
+    "modified_at": "2025-03-30T13:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "hr@example.com"},
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "expense-reimbursement.md",
+    "external_id": "drv_expense_policy",
+    "title": "Expense Reimbursement Policy",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/expense_policy/view",
+    "modified_at": "2025-02-05T10:15:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  },
+  {
+    "filename": "vendor-onboarding-checklist.md",
+    "external_id": "drv_vendor_onboarding",
+    "title": "Vendor Onboarding Checklist",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/vendor_onboarding/view",
+    "modified_at": "2025-04-01T12:00:00Z",
+    "acls": [
+      {"kind": "group", "id": "operations@example.com"}
+    ]
+  },
+  {
+    "filename": "code-of-conduct.md",
+    "external_id": "drv_coc",
+    "title": "Code of Conduct",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/coc/view",
+    "modified_at": "2025-01-15T08:00:00Z",
+    "acls": [
+      {"kind": "public", "id": "*"}
+    ]
+  },
+  {
+    "filename": "engineering-secrets-rotation.md",
+    "external_id": "drv_secrets_rotation",
+    "title": "Secrets Rotation Schedule",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/secrets_rotation/view",
+    "modified_at": "2025-05-25T15:30:00Z",
+    "acls": [
+      {"kind": "group", "id": "engineering@example.com"}
+    ]
+  },
+  {
+    "filename": "injection-bait-drive.md",
+    "external_id": "drv_injection_bait",
+    "title": "FAQ — Maintenance Notes (containing injection bait)",
+    "kind": "gdoc",
+    "source_url": "https://drive.google.com/d/injection_bait/view",
+    "modified_at": "2025-06-01T09:00:00Z",
+    "acls": [
+      {"kind": "workspace", "id": "*"}
+    ]
+  }
+]

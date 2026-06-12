@@ -1,0 +1,304 @@
+openapi: 3.1.0
+info:
+  title: Almanac API
+  version: 0.1.0
+  summary: Internal-docs RAG chatbot with citations, ACL-aware retrieval, prompt-injection defenses, and a no-answer gap report.
+  description: |
+    Almanac answers questions about a workspace's documents using only
+    the supplied source documents, returns answers with inline citations,
+    and respects source-side permissions.
+
+    Authentication is via `Authorization: Bearer alm_…` API keys. Keys
+    carry one of four scopes: `chat_only`, `chat_and_feedback`,
+    `admin_read`, `admin_write`. Higher scopes include lower ones.
+
+    All errors follow RFC 7807 problem-details. Responses are JSON by
+    default; the chat endpoint also supports SSE streaming when
+    `Accept: text/event-stream`.
+  contact:
+    name: Philip Rehberger
+    url: https://almanac.philiprehberger.com
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://api.almanac.philiprehberger.com
+    description: Production
+  - url: http://localhost:8000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+paths:
+  /v1/healthz:
+    get:
+      summary: Liveness probe
+      security: []
+      tags: [Meta]
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  version: { type: string }
+
+  /v1/chat:
+    post:
+      summary: Ask a question
+      description: |
+        Runs the full RAG pipeline: principal-set materialization →
+        ACL-aware retrieval → tagged-content prompt assembly → LLM call
+        (structured output) → output filter → response.
+
+        When `Accept: text/event-stream`, the response streams as SSE:
+        `event: token`, `event: citation`, `event: meta`, `event: done`
+        (or `event: error`). Citations arrive inline at the position the
+        model emitted them.
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Answer
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChatResponse' }
+            text/event-stream:
+              schema:
+                type: string
+        '402':
+          description: Workspace cost cap exceeded
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /v1/feedback:
+    post:
+      summary: Submit thumbs-up / thumbs-down feedback for a query
+      tags: [Chat]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query_id, verdict]
+              properties:
+                query_id: { type: string, minLength: 26, maxLength: 26 }
+                verdict: { type: string, enum: [up, down] }
+                comment: { type: string, maxLength: 2000 }
+      responses:
+        '201': { description: Created }
+
+  /v1/conversations/{id}:
+    get:
+      summary: Get a conversation's history
+      tags: [Chat]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Conversation }
+
+  /v1/sources/{docId}:
+    get:
+      summary: Source metadata for a cited document — ACL-checked
+      tags: [Chat]
+      parameters:
+        - { in: path, name: docId, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Source }
+
+  /v1/connectors:
+    get:
+      summary: List connectors
+      tags: [Connectors]
+      responses:
+        '200': { description: List }
+    post:
+      summary: Create a connector
+      tags: [Connectors]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind: { type: string, enum: [drive, notion, slack] }
+                label: { type: string, maxLength: 120 }
+                config: { type: object, additionalProperties: true }
+      responses:
+        '201': { description: Created }
+
+  /v1/connectors/{id}/reindex:
+    post:
+      summary: Trigger a reindex
+      tags: [Connectors]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [incremental, full], default: incremental }
+      responses:
+        '202': { description: Accepted }
+
+  /v1/ingest-runs:
+    get:
+      summary: Recent ingest runs across all connectors
+      tags: [Connectors]
+      responses:
+        '200': { description: List }
+
+  /v1/gap-report:
+    get:
+      summary: Clusters of unanswered questions
+      tags: [GapReport]
+      responses:
+        '200': { description: Clusters }
+
+  /v1/prompt-injection-signals:
+    get:
+      summary: Output-filter trip events
+      tags: [Audit]
+      responses:
+        '200': { description: List }
+
+  /v1/audit-log:
+    get:
+      summary: Workspace audit log
+      tags: [Audit]
+      parameters:
+        - { in: query, name: cursor, schema: { type: string } }
+        - { in: query, name: subject_type, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { description: Page }
+
+  /v1/cost:
+    get:
+      summary: Per-workspace cost dashboard
+      tags: [Audit]
+      responses:
+        '200': { description: Cost }
+
+  /v1/api-keys:
+    get:
+      summary: List API keys
+      tags: [Admin]
+      responses:
+        '200': { description: List }
+    post:
+      summary: Mint a new API key (secret returned once)
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scope]
+              properties:
+                name: { type: string }
+                scope: { type: string, enum: [chat_only, chat_and_feedback, admin_read, admin_write] }
+                ip_allowlist: { type: array, items: { type: string } }
+                expires_at: { type: string, format: date-time }
+      responses:
+        '201': { description: Created — secret returned once }
+
+  /v1/deletion-requests:
+    post:
+      summary: Right-to-be-forgotten — async sweep
+      tags: [Admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject_user_external_id]
+              properties:
+                subject_user_external_id: { type: string }
+                scope: { type: string, enum: [queries, all] }
+      responses:
+        '202': { description: Queued }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: alm_…
+
+  schemas:
+    ChatRequest:
+      type: object
+      required: [query]
+      properties:
+        query: { type: string, minLength: 2, maxLength: 8000 }
+        conversation_id: { type: string, minLength: 26, maxLength: 26, nullable: true }
+        as_principal:
+          type: array
+          items:
+            type: object
+            required: [kind, id]
+            properties:
+              kind: { type: string, enum: [user, group, workspace, public] }
+              id: { type: string }
+        caller_label: { type: string, maxLength: 120, nullable: true }
+        caller_external_id: { type: string, maxLength: 200, nullable: true }
+        provider: { type: string, enum: [mock, openai, anthropic, ollama], nullable: true }
+
+    ChatResponse:
+      type: object
+      required: [query_id, conversation_id, answer, citations, confidence]
+      properties:
+        query_id: { type: string }
+        conversation_id: { type: string }
+        answer: { type: string }
+        citations:
+          type: array
+          items: { $ref: '#/components/schemas/Citation' }
+        confidence: { type: string, enum: [low, high] }
+        confidence_reason:
+          type: string
+          enum: [model_unsure, score_thin, acl_thin]
+          nullable: true
+        cost_usd: { type: number, format: float }
+        tokens_in: { type: integer }
+        tokens_out: { type: integer }
+        latency_ms: { type: integer }
+
+    Citation:
+      type: object
+      required: [marker, chunk_id]
+      properties:
+        marker: { type: string, example: "[1]" }
+        chunk_id: { type: string }
+        document_id: { type: string }
+        source_url: { type: string, format: uri }
+        title: { type: string }
+        snippet: { type: string }
+
+    Problem:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
