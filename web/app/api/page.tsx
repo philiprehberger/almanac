@@ -4,7 +4,7 @@ import { ApiReferenceReact } from '@scalar/api-reference-react';
 
 export default function ApiReferencePage() {
   const config = {
-    url: '/openapi.yaml',
+    spec: { url: '/openapi.yaml' },
     layout: 'modern',
     theme: 'default',
     hideDownloadButton: false,
