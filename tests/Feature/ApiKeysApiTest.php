@@ -16,31 +16,32 @@ class ApiKeysApiTest extends TestCase
 
         $resp = $this->postJson('/v1/api-keys', [
             'name' => 'CI',
-            'scopes' => ['forms.read', 'submissions.write'],
+            'scope' => ApiKey::SCOPE_CHAT_ONLY,
         ], $this->authed($key));
 
         $resp->assertCreated();
-        $resp->assertJsonStructure(['id', 'secret', 'prefix', 'last_four']);
-        $this->assertStringStartsWith('inkwell_live_', $resp->json('secret'));
+        $resp->assertJsonStructure(['id', 'secret', 'prefix', 'last_four', 'scope']);
+        $resp->assertJsonPath('scope', ApiKey::SCOPE_CHAT_ONLY);
+        $this->assertStringStartsWith('alm_', $resp->json('secret'));
     }
 
     public function test_non_admin_key_cannot_mint_keys(): void
     {
         [$workspace] = $this->freshWorkspace();
-        [, $limited] = ApiKey::mint($workspace, ['forms.read'], 'live');
+        [, $limited] = ApiKey::mint($workspace, ApiKey::SCOPE_CHAT_ONLY, 'limited');
 
-        $this->postJson('/v1/api-keys', ['scopes' => ['admin']], $this->authed($limited))
+        $this->postJson('/v1/api-keys', ['scope' => ApiKey::SCOPE_CHAT_ONLY], $this->authed($limited))
             ->assertStatus(403);
     }
 
     public function test_revoked_key_unusable(): void
     {
         [, $key] = $this->freshWorkspace();
-        $resp = $this->postJson('/v1/api-keys', ['scopes' => ['admin']], $this->authed($key));
+        $resp = $this->postJson('/v1/api-keys', ['scope' => ApiKey::SCOPE_ADMIN_READ], $this->authed($key));
         $id = $resp->json('id');
         $secret = $resp->json('secret');
 
         $this->deleteJson("/v1/api-keys/{$id}", [], $this->authed($key))->assertNoContent();
-        $this->getJson('/v1/forms', $this->authed($secret))->assertStatus(401);
+        $this->getJson('/v1/connectors', $this->authed($secret))->assertStatus(401);
     }
 }
