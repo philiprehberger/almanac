@@ -31,10 +31,26 @@ servers:
 security:
   - bearerAuth: []
 
+tags:
+  - name: Meta
+    description: Service liveness and metadata.
+  - name: Chat
+    description: Ask questions, submit feedback, and inspect conversation history and cited sources.
+  - name: Connectors
+    description: Manage source connectors and trigger ingest runs.
+  - name: GapReport
+    description: Clusters of unanswered questions surfaced from low-confidence responses.
+  - name: Audit
+    description: Audit log, prompt-injection signals, and per-workspace cost dashboards.
+  - name: Admin
+    description: API keys and right-to-be-forgotten deletion requests.
+
 paths:
   /v1/healthz:
     get:
       summary: Liveness probe
+      description: Returns service status and version. Unauthenticated.
+      operationId: getHealthz
       security: []
       tags: [Meta]
       responses:
@@ -51,6 +67,7 @@ paths:
   /v1/chat:
     post:
       summary: Ask a question
+      operationId: postChat
       description: |
         Runs the full RAG pipeline: principal-set materialization →
         ACL-aware retrieval → tagged-content prompt assembly → LLM call
@@ -85,6 +102,8 @@ paths:
   /v1/feedback:
     post:
       summary: Submit thumbs-up / thumbs-down feedback for a query
+      description: Records a verdict and optional comment against a prior `query_id`. Feeds the gap report and quality dashboards.
+      operationId: postFeedback
       tags: [Chat]
       requestBody:
         required: true
@@ -103,6 +122,8 @@ paths:
   /v1/conversations/{id}:
     get:
       summary: Get a conversation's history
+      description: Returns the ordered turn history for a conversation, scoped to the caller's workspace.
+      operationId: getConversation
       tags: [Chat]
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
@@ -112,6 +133,8 @@ paths:
   /v1/sources/{docId}:
     get:
       summary: Source metadata for a cited document — ACL-checked
+      description: Returns title, source URL, and connector for a document. Returns `404` if the caller's principal set does not grant access.
+      operationId: getSource
       tags: [Chat]
       parameters:
         - { in: path, name: docId, required: true, schema: { type: string } }
@@ -121,11 +144,15 @@ paths:
   /v1/connectors:
     get:
       summary: List connectors
+      description: Lists all source connectors configured for the workspace, including their kind, label, and last ingest summary.
+      operationId: listConnectors
       tags: [Connectors]
       responses:
         '200': { description: List }
     post:
       summary: Create a connector
+      description: Registers a new source connector. Credentials supplied in `config` are encrypted at rest; the first ingest run is queued asynchronously.
+      operationId: createConnector
       tags: [Connectors]
       requestBody:
         required: true
@@ -144,6 +171,8 @@ paths:
   /v1/connectors/{id}/reindex:
     post:
       summary: Trigger a reindex
+      description: Queues an ingest run for the connector. `incremental` (default) only fetches changes since the last cursor; `full` re-fetches every document.
+      operationId: reindexConnector
       tags: [Connectors]
       parameters:
         - { in: path, name: id, required: true, schema: { type: string } }
@@ -160,6 +189,8 @@ paths:
   /v1/ingest-runs:
     get:
       summary: Recent ingest runs across all connectors
+      description: Returns recent ingest-run records with status, document counts, and error summaries. Used by the admin dashboard's ingest health panel.
+      operationId: listIngestRuns
       tags: [Connectors]
       responses:
         '200': { description: List }
@@ -167,6 +198,8 @@ paths:
   /v1/gap-report:
     get:
       summary: Clusters of unanswered questions
+      description: Returns clusters of low-confidence or no-answer queries, ranked by frequency. The output is what an internal-docs team should write next.
+      operationId: getGapReport
       tags: [GapReport]
       responses:
         '200': { description: Clusters }
@@ -174,6 +207,8 @@ paths:
   /v1/prompt-injection-signals:
     get:
       summary: Output-filter trip events
+      description: Lists events where the output filter detected suspected prompt-injection content in retrieved sources or model output.
+      operationId: listPromptInjectionSignals
       tags: [Audit]
       responses:
         '200': { description: List }
@@ -181,6 +216,8 @@ paths:
   /v1/audit-log:
     get:
       summary: Workspace audit log
+      description: Returns a paginated audit-log feed for the workspace. Filterable by `subject_type` and cursor-paginated.
+      operationId: getAuditLog
       tags: [Audit]
       parameters:
         - { in: query, name: cursor, schema: { type: string } }
@@ -192,6 +229,8 @@ paths:
   /v1/cost:
     get:
       summary: Per-workspace cost dashboard
+      description: Returns per-workspace LLM cost and token usage rollups against the configured monthly cap.
+      operationId: getCost
       tags: [Audit]
       responses:
         '200': { description: Cost }
@@ -199,11 +238,15 @@ paths:
   /v1/api-keys:
     get:
       summary: List API keys
+      description: Lists API keys for the workspace. Secrets are never returned after the initial mint — only metadata (label, scope, prefix, last-used).
+      operationId: listApiKeys
       tags: [Admin]
       responses:
         '200': { description: List }
     post:
       summary: Mint a new API key (secret returned once)
+      description: Creates a new API key with the given scope and optional IP allowlist. The full `alm_…` secret is returned exactly once in the response body.
+      operationId: createApiKey
       tags: [Admin]
       requestBody:
         required: true
@@ -223,6 +266,8 @@ paths:
   /v1/deletion-requests:
     post:
       summary: Right-to-be-forgotten — async sweep
+      description: Queues an async deletion sweep for a subject user across queries (or queries plus all associated artifacts). Returns `202` with a tracking id.
+      operationId: createDeletionRequest
       tags: [Admin]
       requestBody:
         required: true
