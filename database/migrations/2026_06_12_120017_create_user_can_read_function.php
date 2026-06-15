@@ -7,6 +7,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::unprepared(<<<'SQL'
             CREATE OR REPLACE FUNCTION user_can_read(
                 principal_set jsonb,
@@ -39,6 +43,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
         DB::unprepared('DROP FUNCTION IF EXISTS user_can_read(jsonb, char)');
     }
 };

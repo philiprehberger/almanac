@@ -25,7 +25,9 @@ return new class extends Migration
             $table->index(['document_id', 'seq']);
         });
 
-        DB::statement('ALTER TABLE doc_chunks ADD COLUMN embedding vector(1536)');
+        if (DB::connection()->getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE doc_chunks ADD COLUMN embedding vector(1536)');
+        }
     }
 
     public function down(): void
