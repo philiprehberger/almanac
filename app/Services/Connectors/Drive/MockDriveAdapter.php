@@ -5,6 +5,7 @@ namespace App\Services\Connectors\Drive;
 use App\Models\Connector;
 use App\Services\Connectors\Contracts\ConnectorAdapter;
 use App\Services\Connectors\FetchedDocument;
+use App\Services\Connectors\MapsSourceAcls;
 
 /**
  * Walks the fixture corpus under database/seeders/fixtures/drive/* — yields
@@ -13,6 +14,8 @@ use App\Services\Connectors\FetchedDocument;
  */
 class MockDriveAdapter implements ConnectorAdapter
 {
+    use MapsSourceAcls;
+
     public function kind(): string
     {
         return 'drive';
@@ -53,18 +56,4 @@ class MockDriveAdapter implements ConnectorAdapter
         // Mock: no-op. Real adapter would call oauth2.revoke.
     }
 
-    /**
-     * @param  array<int, array<string, mixed>>  $raw
-     * @return array<int, array{principal_kind:string, principal_external_id:string}>
-     */
-    private function mapAcls(array $raw): array
-    {
-        return array_map(
-            fn ($a) => [
-                'principal_kind' => (string) ($a['kind'] ?? 'workspace'),
-                'principal_external_id' => (string) ($a['id'] ?? '*'),
-            ],
-            $raw
-        );
-    }
 }

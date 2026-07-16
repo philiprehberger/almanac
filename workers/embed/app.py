@@ -16,22 +16,36 @@ the env var. Laravel's job dispatcher sets it; cron sets it.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import re
 from typing import Iterable
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 EMBED_DIM = 1536
 CHUNKER_VERSION = "v1"
 
+# Upper bounds on caller-supplied input so a single oversized request can't pin
+# a worker's CPU (SHA-256 per token, O(n·m) judge scan) or exhaust memory.
+MAX_BODY_CHARS = 2_000_000
+MAX_TEXT_CHARS = 200_000
+MAX_ANSWER_CHARS = 100_000
+MAX_QUERY_CHARS = 8_000
+MAX_JUDGE_CHUNKS = 50
+
 PROVIDER = os.environ.get("ALMANAC_EMBED_PROVIDER", "mock")
 OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
-SHARED_SECRET = os.environ.get(
-    "ALMANAC_EMBED_WORKER_SHARED_SECRET", "local-dev-secret"
-)
+SHARED_SECRET = os.environ.get("ALMANAC_EMBED_WORKER_SHARED_SECRET", "")
+
+# Fail closed: refuse to start if the shared secret is unset or still a
+# committed placeholder, rather than silently accepting a well-known default.
+if not SHARED_SECRET or SHARED_SECRET == "REPLACE_ME":
+    raise RuntimeError(
+        "ALMANAC_EMBED_WORKER_SHARED_SECRET is required and must not be a placeholder"
+    )
 
 app = FastAPI(
     title="Almanac Embed Worker",
@@ -41,13 +55,14 @@ app = FastAPI(
 
 
 def require_secret(x_almanac_worker_secret: str = Header(default="")) -> None:
-    if x_almanac_worker_secret != SHARED_SECRET:
+    # Constant-time compare so the secret can't be recovered via response timing.
+    if not hmac.compare_digest(x_almanac_worker_secret, SHARED_SECRET):
         raise HTTPException(status_code=401, detail="invalid worker secret")
 
 
 class EmbedRequest(BaseModel):
     document_id: str = Field(..., min_length=1, max_length=64)
-    body: str = Field(..., min_length=1)
+    body: str = Field(..., min_length=1, max_length=MAX_BODY_CHARS)
     chunker_version: str = CHUNKER_VERSION
 
 
@@ -66,7 +81,7 @@ class EmbedResponse(BaseModel):
 
 
 class RedactRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=MAX_TEXT_CHARS)
 
 
 class RedactResponse(BaseModel):
@@ -74,9 +89,16 @@ class RedactResponse(BaseModel):
 
 
 class JudgeRequest(BaseModel):
-    query: str
-    answer: str
-    chunks: list[str]
+    query: str = Field(..., max_length=MAX_QUERY_CHARS)
+    answer: str = Field(..., max_length=MAX_ANSWER_CHARS)
+    chunks: list[str] = Field(..., max_length=MAX_JUDGE_CHUNKS)
+
+    @field_validator("chunks")
+    @classmethod
+    def _cap_chunk_sizes(cls, chunks: list[str]) -> list[str]:
+        if any(len(c) > MAX_TEXT_CHARS for c in chunks):
+            raise ValueError("judge chunk exceeds size limit")
+        return chunks
 
 
 class JudgeResponse(BaseModel):

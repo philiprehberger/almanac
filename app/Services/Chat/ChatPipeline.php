@@ -53,7 +53,7 @@ class ChatPipeline
         bool $stream = false,
         ?string $providerOverride = null,
     ): ChatPipelineResult {
-        $this->budget->ensureUnderCap($workspace);
+        $costEstimate = $this->budget->reserve($workspace);
 
         $conversation = $this->conversationManager->getOrCreate($workspace, $conversationId, $userId, $callerLabel);
         $summary = $this->conversationManager->buildSummary($conversation);
@@ -127,7 +127,7 @@ class ChatPipeline
             'created_at' => Carbon::now(),
         ]);
 
-        $this->budget->record($workspace, $sanitized->tokensIn, $sanitized->tokensOut, (float) $sanitized->costUsd);
+        $this->budget->settle($workspace, $sanitized->tokensIn, $sanitized->tokensOut, (float) $sanitized->costUsd, $costEstimate);
         $this->outputFilter->recordTrips($workspace, $query->id, $trips);
 
         if ($confidence === 'low') {

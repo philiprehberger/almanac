@@ -3,6 +3,7 @@
 namespace App\Http\Responses;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -47,10 +48,20 @@ class ProblemResponse extends JsonResponse
         $status = $statusOverride ?? self::statusFor($e);
         $title = self::titleFor($status);
 
+        // Never surface raw exception messages (SQL, stack context, internal
+        // paths) to clients on a server error — log them, return a generic
+        // detail. Below 500 the message is a caller-facing explanation.
+        if ($status >= 500) {
+            Log::error($e->getMessage(), ['exception' => $e]);
+            $detail = 'An unexpected error occurred. The incident has been logged.';
+        } else {
+            $detail = $e->getMessage();
+        }
+
         return new self(
             status: $status,
             title: $title,
-            detail: $e->getMessage(),
+            detail: $detail,
         );
     }
 

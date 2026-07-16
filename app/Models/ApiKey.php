@@ -38,6 +38,7 @@ class ApiKey extends Model
         'key_hash',
         'last_four',
         'scope',
+        'allow_identity_assertion',
         'ip_allowlist',
         'expires_at',
     ];
@@ -48,6 +49,7 @@ class ApiKey extends Model
     {
         return [
             'ip_allowlist' => 'array',
+            'allow_identity_assertion' => 'boolean',
             'expires_at' => 'datetime',
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',
@@ -63,6 +65,7 @@ class ApiKey extends Model
         ?string $name = null,
         ?array $ipAllowlist = null,
         ?\DateTimeInterface $expiresAt = null,
+        bool $allowIdentityAssertion = false,
     ): array {
         if (! in_array($scope, self::SCOPES, true)) {
             throw new \InvalidArgumentException("Invalid scope: {$scope}");
@@ -78,11 +81,17 @@ class ApiKey extends Model
             'key_hash' => hash('sha256', $plaintext),
             'last_four' => substr($plaintext, -4),
             'scope' => $scope,
+            'allow_identity_assertion' => $allowIdentityAssertion,
             'ip_allowlist' => $ipAllowlist,
             'expires_at' => $expiresAt,
         ]);
 
         return [$apiKey, $plaintext];
+    }
+
+    public function allowsIdentityAssertion(): bool
+    {
+        return (bool) $this->allow_identity_assertion;
     }
 
     public static function findByPlaintext(?string $plaintext): ?self

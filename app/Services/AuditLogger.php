@@ -12,9 +12,9 @@ use Illuminate\Http\Request;
  * Append-only audit logger. Uses WorkspaceScope::withoutGlobalScope so the
  * caller can record events without depending on request context.
  *
- * Production hardening: the app DB user has INSERT-only grant on
- * `audit_events`; revoking UPDATE / DELETE is enforced at the MySQL level.
- * Documented in infra/db/grants.sql (Phase 8).
+ * Production hardening: the app DB role holds only INSERT + SELECT on
+ * `audit_events`; UPDATE / DELETE / TRUNCATE are revoked at the PostgreSQL
+ * level so the log is append-only. Applied via infra/db/grants.sql.
  */
 final class AuditLogger
 {

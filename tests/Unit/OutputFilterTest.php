@@ -86,6 +86,25 @@ class OutputFilterTest extends TestCase
         $this->assertEmpty($out['result']->citations);
     }
 
+    public function test_exfil_url_is_stripped_from_the_sanitized_answer(): void
+    {
+        $filter = new OutputFilter();
+        $result = $this->makeResult('Please visit https://attacker.example.com/leak for more info.');
+        $out = $filter->check($result, $this->retrievedChunks(), $this->chunkMap());
+        // Detection is not enough — the offending URL must be gone from the answer.
+        $this->assertStringNotContainsString('attacker.example.com', $out['result']->answer);
+    }
+
+    public function test_single_quoted_cite_variant_is_detected(): void
+    {
+        $filter = new OutputFilter();
+        $result = $this->makeResult("A claim <cite id='99'/>", [['chunk_id' => 99]]);
+        $out = $filter->check($result, $this->retrievedChunks(), $this->chunkMap());
+        $kinds = array_column($out['trips'], 'signal_kind');
+        $this->assertContains(PromptInjectionSignal::SIGNAL_HALLUCINATED_CITATION, $kinds);
+        $this->assertStringNotContainsString("id='99'", $out['result']->answer);
+    }
+
     public function test_clean_answer_does_not_trip(): void
     {
         $filter = new OutputFilter();

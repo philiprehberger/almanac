@@ -15,22 +15,23 @@ class PruneExpiredConversationsJob implements ShouldQueue
 
     public function handle(): void
     {
-        $expired = DB::table('conversations')
-            ->where('expires_at', '<', now())
-            ->pluck('id')
-            ->all();
+        $expiredConversationIds = fn ($sub) => $sub->select('id')->from('conversations')
+            ->where('expires_at', '<', now());
 
-        if ($expired === []) {
-            return;
-        }
+        $expiredQueryIds = function ($sub) use ($expiredConversationIds) {
+            $sub->select('id')->from('queries')
+                ->whereIn('conversation_id', $expiredConversationIds);
+        };
 
-        $queryIds = DB::table('queries')->whereIn('conversation_id', $expired)->pluck('id')->all();
-        if ($queryIds !== []) {
-            DB::table('feedback')->whereIn('query_id', $queryIds)->delete();
-            DB::table('unanswered_questions')->whereIn('query_id', $queryIds)->delete();
-            DB::table('prompt_injection_signals')->whereIn('query_id', $queryIds)->delete();
-            DB::table('queries')->whereIn('id', $queryIds)->delete();
-        }
-        DB::table('conversations')->whereIn('id', $expired)->delete();
+        // Sub-selects keep the whole prune in the database — no unbounded id
+        // list is ever bound into a statement. One transaction so a mid-prune
+        // failure can't leave orphaned child rows.
+        DB::transaction(function () use ($expiredConversationIds, $expiredQueryIds) {
+            DB::table('feedback')->whereIn('query_id', $expiredQueryIds)->delete();
+            DB::table('unanswered_questions')->whereIn('query_id', $expiredQueryIds)->delete();
+            DB::table('prompt_injection_signals')->whereIn('query_id', $expiredQueryIds)->delete();
+            DB::table('queries')->whereIn('id', $expiredQueryIds)->delete();
+            DB::table('conversations')->whereIn('id', $expiredConversationIds)->delete();
+        });
     }
 }

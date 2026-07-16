@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\IngestConnectorJob;
 use App\Models\Connector;
 use App\Models\IngestRun;
 use App\Models\Workspace;
 use App\Services\AuditLogger;
 use App\Services\Connectors\ConnectorAdapterFactory;
-use App\Services\Connectors\DocumentIngester;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Validator;
 class ConnectorsController extends Controller
 {
     public function __construct(
-        private readonly DocumentIngester $ingester,
         private readonly ConnectorAdapterFactory $factory,
     ) {
     }
@@ -89,15 +88,14 @@ class ConnectorsController extends Controller
         if (! in_array($mode, [IngestRun::MODE_INCREMENTAL, IngestRun::MODE_FULL], true)) {
             $mode = IngestRun::MODE_INCREMENTAL;
         }
-        if ($mode === IngestRun::MODE_FULL) {
-            $workspace->forceFill(['degraded_until' => now()->addMinutes(5)])->save();
-        }
-        $run = $this->ingester->run($workspace, $connector, $mode);
-        if ($mode === IngestRun::MODE_FULL) {
-            $workspace->forceFill(['degraded_until' => null])->save();
-        }
-        AuditLogger::record($workspace, 'connector', $connector->id, 'reindex', ['mode' => $mode, 'run_id' => $run->id], request: $request);
-        return response()->json(['run_id' => $run->id, 'status' => $run->status], 202);
+
+        // Dispatch to the queue rather than running ingest inside the request:
+        // a full reindex can outlast the HTTP timeout, and the job's
+        // WithoutOverlapping guard serializes it against scheduled syncs.
+        IngestConnectorJob::dispatch($workspace->id, $connector->id, $mode);
+
+        AuditLogger::record($workspace, 'connector', $connector->id, 'reindex', ['mode' => $mode], request: $request);
+        return response()->json(['status' => 'queued', 'mode' => $mode], 202);
     }
 
     public function pause(Request $request, string $id): JsonResponse

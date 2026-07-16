@@ -679,7 +679,10 @@ async function deploy(options = {}) {
         const remoteTmpZip = `/tmp/release-${releaseName}.zip`;
         log('📤', 'Uploading package to server...');
 
-        const scpCommand = `scp -i "${sshKey.path}" -o StrictHostKeyChecking=no "${zipPath}" ${CONFIG.server.username}@${CONFIG.server.host}:${remoteTmpZip}`;
+        // accept-new pins the host key on first connect (trust-on-first-use) and
+        // then fails if it ever changes — unlike `no`, which blindly accepts a
+        // changed key and silently tolerates a MITM of the deploy channel.
+        const scpCommand = `scp -i "${sshKey.path}" -o StrictHostKeyChecking=accept-new "${zipPath}" ${CONFIG.server.username}@${CONFIG.server.host}:${remoteTmpZip}`;
 
         try {
             execSync(scpCommand, { stdio: 'inherit' });

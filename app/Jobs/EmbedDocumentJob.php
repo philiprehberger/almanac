@@ -93,7 +93,7 @@ class EmbedDocumentJob implements ShouldQueue
         EmbedJobDlq::query()->withoutGlobalScopes()->create([
             'workspace_id' => $this->workspaceId,
             'document_id' => $this->documentId,
-            'attempts' => $this->tries,
+            'attempts' => $this->attempts(),
             'last_error' => $e->getMessage(),
             'payload' => [
                 'body_length' => strlen($this->body),

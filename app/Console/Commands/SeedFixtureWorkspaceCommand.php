@@ -23,6 +23,15 @@ class SeedFixtureWorkspaceCommand extends Command
     ): int {
         $slug = $this->option('slug') ?? 'demo';
 
+        // The public role-toggle asserts these source-side groups via
+        // `as_principal`; the allowlist bounds what the browser-shipped demo
+        // key may claim (see PrincipalSetMaterializer::forAssertion).
+        $demoPrincipals = [
+            ['kind' => 'group', 'id' => 'hr@example.com'],
+            ['kind' => 'group', 'id' => 'engineering@example.com'],
+            ['kind' => 'group', 'id' => 'contractors@example.com'],
+        ];
+
         /** @var Workspace $workspace */
         $workspace = Workspace::firstOrCreate(
             ['slug' => $slug],
@@ -30,8 +39,10 @@ class SeedFixtureWorkspaceCommand extends Command
                 'name' => Str::title($slug).' (public demo)',
                 'monthly_budget_usd' => (float) config('almanac.demo.monthly_budget_usd', 25),
                 'allowed_chat_origins' => ['https://almanac.philiprehberger.com', 'http://localhost:3000'],
+                'demo_principals' => $demoPrincipals,
             ],
         );
+        $workspace->forceFill(['demo_principals' => $demoPrincipals])->save();
 
         $this->line("Workspace: {$workspace->slug} ({$workspace->id})");
 
@@ -78,7 +89,12 @@ class SeedFixtureWorkspaceCommand extends Command
             ->whereNull('revoked_at')
             ->first();
         if ($existingKey === null) {
-            [$key, $plaintext] = ApiKey::mint($workspace, ApiKey::SCOPE_CHAT_ONLY, name: 'Public demo key');
+            [$key, $plaintext] = ApiKey::mint(
+                $workspace,
+                ApiKey::SCOPE_CHAT_ONLY,
+                name: 'Public demo key',
+                allowIdentityAssertion: true,
+            );
             $this->newLine();
             $this->comment('Public demo API key (record this now, only shown once):');
             $this->line("  <fg=cyan>{$plaintext}</>");
