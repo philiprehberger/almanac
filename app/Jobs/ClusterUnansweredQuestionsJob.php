@@ -43,50 +43,67 @@ class ClusterUnansweredQuestionsJob implements ShouldQueue
             return;
         }
 
+        // Cluster only the still-open gap space: questions already curated into
+        // an operator-addressed cluster are left untouched.
         $rows = DB::table('unanswered_questions as u')
             ->join('queries as q', 'q.id', '=', 'u.query_id')
+            ->leftJoin('gap_clusters as g', 'g.id', '=', 'u.cluster_id')
             ->where('u.workspace_id', $workspace->id)
+            ->whereNull('g.addressed_at')
             ->get(['u.id as uq_id', 'q.query_text']);
 
-        if ($rows->count() < self::MIN_FOR_CLUSTERING) {
-            return;
-        }
-
-        $texts = $rows->pluck('query_text')->map(fn ($t) => (string) $t)->all();
-        $vectors = $embedder->embed($texts);
-
-        // Greedy agglomeration: walk rows in order, assign to nearest existing
-        // centroid within threshold, else open a new cluster.
         /** @var array<int, array{vector:array<int,float>, ids:array<int,string>, texts:array<int,string>}> $clusters */
         $clusters = [];
-        foreach ($rows as $i => $row) {
-            $v = $vectors[$i] ?? null;
-            if (! is_array($v)) {
-                continue;
-            }
-            $assigned = false;
-            foreach ($clusters as $k => &$cluster) {
-                $dist = $this->cosineDistance($v, $cluster['vector']);
-                if ($dist <= self::COSINE_DISTANCE_MAX) {
-                    $cluster['ids'][] = $row->uq_id;
-                    $cluster['texts'][] = $row->query_text;
-                    $cluster['vector'] = $this->mean($cluster['vector'], $v, count($cluster['ids']));
-                    $assigned = true;
-                    break;
+        if ($rows->count() >= self::MIN_FOR_CLUSTERING) {
+            $texts = $rows->pluck('query_text')->map(fn ($t) => (string) $t)->all();
+            $vectors = $embedder->embed($texts);
+
+            // Greedy agglomeration: walk rows in order, assign to nearest
+            // existing centroid within threshold, else open a new cluster.
+            foreach ($rows as $i => $row) {
+                $v = $vectors[$i] ?? null;
+                if (! is_array($v)) {
+                    continue;
                 }
-            }
-            unset($cluster);
-            if (! $assigned) {
-                $clusters[] = ['vector' => $v, 'ids' => [$row->uq_id], 'texts' => [$row->query_text]];
+                $assigned = false;
+                foreach ($clusters as $k => &$cluster) {
+                    $dist = $this->cosineDistance($v, $cluster['vector']);
+                    if ($dist <= self::COSINE_DISTANCE_MAX) {
+                        $cluster['ids'][] = $row->uq_id;
+                        $cluster['texts'][] = $row->query_text;
+                        $cluster['vector'] = $this->mean($cluster['vector'], $v, count($cluster['ids']));
+                        $assigned = true;
+                        break;
+                    }
+                }
+                unset($cluster);
+                if (! $assigned) {
+                    $clusters[] = ['vector' => $v, 'ids' => [$row->uq_id], 'texts' => [$row->query_text]];
+                }
             }
         }
 
-        // Persist clusters.
+        // Fresh recompute of the unaddressed space: drop the prior unaddressed
+        // clusters and clear their assignments (so empty orphans can't
+        // accumulate and no question keeps a stale cluster_id), then rebuild.
+        // Addressed clusters and their members are preserved.
         DB::transaction(function () use ($workspace, $clusters) {
-            DB::table('gap_clusters')->where('workspace_id', $workspace->id)->update([
-                'member_count' => 0,
-                'last_recomputed_at' => now(),
-            ]);
+            $addressedIds = DB::table('gap_clusters')
+                ->where('workspace_id', $workspace->id)
+                ->whereNotNull('addressed_at')
+                ->pluck('id')
+                ->all();
+
+            UnansweredQuestion::query()
+                ->withoutGlobalScope(WorkspaceScope::class)
+                ->where('workspace_id', $workspace->id)
+                ->when($addressedIds !== [], fn ($q) => $q->whereNotIn('cluster_id', $addressedIds))
+                ->update(['cluster_id' => null]);
+
+            DB::table('gap_clusters')
+                ->where('workspace_id', $workspace->id)
+                ->whereNull('addressed_at')
+                ->delete();
 
             foreach ($clusters as $cluster) {
                 if (count($cluster['ids']) < 2) {

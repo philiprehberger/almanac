@@ -1,22 +1,26 @@
 <?php
 
-return [
-    /*
-     * Webhook Relay API + admin. The docs-site try-it console at
-     * webhook-relay.dcsuniverse.com fires real calls cross-origin into
-     * api.webhook-relay.dcsuniverse.com, so the API needs to allow that
-     * origin specifically. The admin panel is same-origin so doesn't
-     * need its own entry.
-     */
+/*
+ * Almanac public API CORS. The docs/demo surface (almanac.philiprehberger.com)
+ * and the local Next dev server call the v1 API cross-origin. Auth is a
+ * stateless Bearer token, never a cookie, so credentialed CORS is off.
+ *
+ * Set ALMANAC_CORS_ORIGINS (comma-separated) to override the allowlist for a
+ * self-hosted deploy. The API vhost should not also emit its own
+ * Access-Control-* headers — this is the single source of truth.
+ */
 
+$origins = array_values(array_filter(array_map('trim', explode(',', (string) env(
+    'ALMANAC_CORS_ORIGINS',
+    'https://almanac.philiprehberger.com,http://localhost:3000',
+)))));
+
+return [
     'paths' => ['v1/*'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'https://webhook-relay.dcsuniverse.com',
-        'http://localhost:3000', // local Next dev server
-    ],
+    'allowed_origins' => $origins,
 
     'allowed_origins_patterns' => [],
 

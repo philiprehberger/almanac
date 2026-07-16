@@ -3,20 +3,23 @@ name = "almanac-embed-worker"
 version = "0.1.0"
 description = "Almanac FastAPI embed + chunker + LLM-judge sidecar."
 requires-python = ">=3.11"
+# Bounded to the current major so an unattended `pip install` on redeploy can't
+# pull a breaking upstream release. Commit a uv.lock / pip freeze for fully
+# reproducible builds.
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.30",
-    "pydantic>=2.7",
-    "httpx>=0.27",
+    "fastapi>=0.115,<1.0",
+    "uvicorn[standard]>=0.30,<1.0",
+    "pydantic>=2.7,<3.0",
+    "httpx>=0.27,<1.0",
 ]
 
 [project.optional-dependencies]
 openai = [
-    "openai>=1.30",
+    "openai>=1.30,<2.0",
 ]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.23",
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
 ]
 
 [build-system]

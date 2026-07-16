@@ -5,9 +5,12 @@ namespace App\Services\Connectors\Notion;
 use App\Models\Connector;
 use App\Services\Connectors\Contracts\ConnectorAdapter;
 use App\Services\Connectors\FetchedDocument;
+use App\Services\Connectors\MapsSourceAcls;
 
 class MockNotionAdapter implements ConnectorAdapter
 {
+    use MapsSourceAcls;
+
     public function kind(): string
     {
         return 'notion';
@@ -38,13 +41,7 @@ class MockNotionAdapter implements ConnectorAdapter
                 etag: (string) ($entry['etag'] ?? sha1_file($contentPath)),
                 modifiedAt: isset($entry['modified_at']) ? new \DateTimeImmutable((string) $entry['modified_at']) : null,
                 body: (string) file_get_contents($contentPath),
-                acls: array_map(
-                    fn ($a) => [
-                        'principal_kind' => (string) ($a['kind'] ?? 'workspace'),
-                        'principal_external_id' => (string) ($a['id'] ?? '*'),
-                    ],
-                    (array) ($entry['acls'] ?? [])
-                ),
+                acls: $this->mapAcls((array) ($entry['acls'] ?? [])),
             );
         }
     }

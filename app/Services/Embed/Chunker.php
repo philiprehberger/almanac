@@ -41,8 +41,9 @@ class Chunker
                 $tail = mb_substr($buffer, max(0, mb_strlen($buffer) - self::OVERLAP_CHARS));
                 $buffer = $tail."\n\n".$p;
             } else {
-                $chunks = array_merge($chunks, $this->splitLong($p, $seq));
-                $seq += count($chunks);
+                $split = $this->splitLong($p, $seq);
+                $chunks = array_merge($chunks, $split);
+                $seq += count($split);
                 $buffer = '';
             }
         }
@@ -68,10 +69,26 @@ class Chunker
     private function splitLong(string $paragraph, int $startSeq): array
     {
         $sentences = preg_split('/(?<=[.!?])\s+/', $paragraph) ?: [$paragraph];
+
+        // Hard-cap: a "sentence" with no usable boundary (minified JSON, a CSV
+        // line, a base64 blob) would otherwise become one unbounded chunk with
+        // an unbounded embedding request. Break any oversized atom to size.
+        $atoms = [];
+        foreach ($sentences as $s) {
+            if (mb_strlen($s) <= self::TARGET_CHARS) {
+                $atoms[] = $s;
+                continue;
+            }
+            $len = mb_strlen($s);
+            for ($i = 0; $i < $len; $i += self::TARGET_CHARS) {
+                $atoms[] = mb_substr($s, $i, self::TARGET_CHARS);
+            }
+        }
+
         $chunks = [];
         $buffer = '';
         $seq = $startSeq;
-        foreach ($sentences as $s) {
+        foreach ($atoms as $s) {
             if ((mb_strlen($buffer) + mb_strlen($s)) > self::TARGET_CHARS && $buffer !== '') {
                 $chunks[] = $this->mkChunk($buffer, $seq++);
                 $buffer = $s;

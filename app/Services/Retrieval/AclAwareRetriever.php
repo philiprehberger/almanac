@@ -144,13 +144,13 @@ class AclAwareRetriever
                      d.kind          AS kind,
                      (c.embedding <=> ?::vector) AS distance
                  FROM doc_chunks c
-                 JOIN documents d ON d.id = c.document_id
+                 JOIN documents d ON d.id = c.document_id AND d.workspace_id = c.workspace_id
                  WHERE c.workspace_id = ?
                    AND d.deleted_at IS NULL
-                   AND user_can_read(?::jsonb, c.document_id)
+                   AND user_can_read(?::jsonb, c.document_id, ?)
                  ORDER BY c.embedding <=> ?::vector
                  LIMIT ?',
-                [$vectorLiteral, $workspace->id, $principalSetJson, $vectorLiteral, $targetK]
+                [$vectorLiteral, $workspace->id, $principalSetJson, $workspace->id, $vectorLiteral, $targetK]
             );
 
             return array_map(

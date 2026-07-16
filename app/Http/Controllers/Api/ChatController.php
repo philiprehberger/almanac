@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ProblemResponse;
-use App\Models\IdentityMapping;
-use App\Models\Scopes\WorkspaceScope;
+use App\Models\ApiKey;
 use App\Models\Workspace;
 use App\Services\Chat\ChatPipeline;
 use App\Services\Chat\SseChatStreamer;
 use App\Services\Cost\BudgetExceededException;
+use App\Services\Retrieval\IdentityAssertionDenied;
 use App\Services\Retrieval\PrincipalSetMaterializer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -39,8 +39,23 @@ class ChatController extends Controller
 
         /** @var Workspace $workspace */
         $workspace = $request->attributes->get('workspace');
+        /** @var ApiKey $apiKey */
+        $apiKey = $request->attributes->get('api_key');
 
-        $principalSet = $this->resolvePrincipalSet($workspace, $data);
+        try {
+            $principalSet = $this->principals->forAssertion(
+                workspace: $workspace,
+                apiKey: $apiKey,
+                asPrincipal: (array) ($data['as_principal'] ?? []),
+                callerExternalId: $data['caller_external_id'] ?? null,
+            );
+        } catch (IdentityAssertionDenied $e) {
+            return new ProblemResponse(
+                status: 403,
+                title: 'Forbidden',
+                detail: $e->getMessage(),
+            );
+        }
 
         try {
             $result = $this->pipeline->run(
@@ -71,29 +86,6 @@ class ChatController extends Controller
             return $this->streamer->stream($result);
         }
         return response()->json($result->toResponseArray());
-    }
-
-    /**
-     * @return array<int, array{kind:string, id:string}>
-     */
-    private function resolvePrincipalSet(Workspace $workspace, array $data): array
-    {
-        if (! empty($data['as_principal']) && is_array($data['as_principal'])) {
-            return $this->principals->forSynthetic($workspace, $data['as_principal']);
-        }
-
-        if (! empty($data['caller_external_id'])) {
-            $mapping = IdentityMapping::query()
-                ->withoutGlobalScope(WorkspaceScope::class)
-                ->where('workspace_id', $workspace->id)
-                ->where('source_principal_id', $data['caller_external_id'])
-                ->first();
-            if ($mapping && $mapping->almanac_user_id !== null) {
-                return $this->principals->forUser($workspace, (int) $mapping->almanac_user_id);
-            }
-        }
-
-        return $this->principals->forUser($workspace, null);
     }
 
     private function wantsSse(Request $request): bool

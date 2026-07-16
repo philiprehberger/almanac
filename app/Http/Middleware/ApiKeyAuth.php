@@ -63,6 +63,18 @@ class ApiKeyAuth
         }
 
         $workspace = $apiKey->workspace()->withoutGlobalScope(WorkspaceScope::class)->first();
+
+        // A key whose workspace is missing (deleted / broken FK) must fail
+        // closed — a null workspace would otherwise disable the global
+        // WorkspaceScope and run downstream queries unscoped.
+        if ($workspace === null) {
+            return new ProblemResponse(
+                status: 401,
+                title: 'Authentication required',
+                detail: 'The API key is not associated with an active workspace.',
+            );
+        }
+
         $request->attributes->set('api_key', $apiKey);
         $request->attributes->set('workspace', $workspace);
 

@@ -26,6 +26,7 @@ class ApiKeysController extends Controller
         $data = Validator::make($request->all(), [
             'name' => ['nullable', 'string', 'max:100'],
             'scope' => ['required', 'string', 'in:'.implode(',', ApiKey::SCOPES)],
+            'allow_identity_assertion' => ['nullable', 'boolean'],
             'ip_allowlist' => ['nullable', 'array'],
             'ip_allowlist.*' => ['string', 'regex:/^[0-9a-fA-F:.]+(\/[0-9]{1,3})?$/'],
             'expires_at' => ['nullable', 'date'],
@@ -37,6 +38,7 @@ class ApiKeysController extends Controller
             name: $data['name'] ?? null,
             ipAllowlist: $data['ip_allowlist'] ?? null,
             expiresAt: isset($data['expires_at']) ? new \DateTimeImmutable($data['expires_at']) : null,
+            allowIdentityAssertion: (bool) ($data['allow_identity_assertion'] ?? false),
         );
 
         AuditLogger::record($workspace, 'api_key', $apiKey->id, 'created', ['scope' => $apiKey->scope], request: $request);
@@ -69,6 +71,7 @@ class ApiKeysController extends Controller
             'prefix' => $key->prefix,
             'last_four' => $key->last_four,
             'scope' => $key->scope,
+            'allow_identity_assertion' => $key->allow_identity_assertion,
             'ip_allowlist' => $key->ip_allowlist,
             'expires_at' => $key->expires_at?->toIso8601String(),
             'last_used_at' => $key->last_used_at?->toIso8601String(),

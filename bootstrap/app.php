@@ -21,11 +21,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'workspace.rate-limit' => \App\Http\Middleware\WorkspaceRateLimit::class,
         ]);
 
-        // Trust EC2's own NAT + Cloudflare's published ranges for X-Forwarded-For
-        // so per-IP rate limit reads the real client IP, not the proxy IP.
-        // Cloudflare ranges are refreshed via the `inkwell:refresh-trusted-proxies`
-        // command (Phase 6 wiring).
-        $middleware->trustProxies(at: '*');
+        // Trust only the front proxies we actually sit behind, so X-Forwarded-For
+        // (used by the API-key IP allowlist and rate limiting) can't be spoofed
+        // by a client. Defaults to loopback for the same-host Apache vhost;
+        // set ALMANAC_TRUSTED_PROXIES (comma-separated IPs/CIDRs) when a load
+        // balancer or CDN sits in front. Trusting '*' would let any client forge
+        // its source IP.
+        $trustedProxies = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('ALMANAC_TRUSTED_PROXIES', '127.0.0.1,::1')),
+        )));
+        $middleware->trustProxies(at: $trustedProxies);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

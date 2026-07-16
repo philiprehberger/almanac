@@ -36,7 +36,7 @@ class PromptBuilder
                 '{id}' => (string) $i,
                 '{source}' => $this->safeAttr($c['source_url']),
                 '{title}' => $this->safeAttr($c['title']),
-                '{text}' => $c['text'],
+                '{text}' => $this->safeText($c['text']),
             ]);
             $i++;
         }
@@ -61,5 +61,15 @@ class PromptBuilder
     private function safeAttr(string $v): string
     {
         return str_replace(['"', '<', '>'], ['&quot;', '&lt;', '&gt;'], $v);
+    }
+
+    /**
+     * Neutralize `<` / `>` inside chunk body text so a retrieved document can
+     * never forge a `</retrieved_chunk>` (or a fake opening tag) and break out
+     * of the data boundary. The model reads the entities as literal text.
+     */
+    private function safeText(string $v): string
+    {
+        return str_replace(['<', '>'], ['&lt;', '&gt;'], $v);
     }
 }

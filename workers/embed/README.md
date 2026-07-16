@@ -11,7 +11,7 @@ FastAPI sidecar that handles chunking, embedding, LLM-judge re-scoring, and PII 
 | POST | `/llm-judge` | Cheap second-pass confidence rescoring. |
 | POST | `/redact` | Centroid-text PII redaction for the gap-report clustering job. |
 
-All non-healthz endpoints require `X-Almanac-Worker-Secret` matching `ALMANAC_EMBED_WORKER_SHARED_SECRET`.
+All non-healthz endpoints require `X-Almanac-Worker-Secret` matching `ALMANAC_EMBED_WORKER_SHARED_SECRET` (compared in constant time). The worker refuses to start if that variable is unset or left as the `REPLACE_ME` placeholder — there is no built-in default secret.
 
 ## Local dev
 
