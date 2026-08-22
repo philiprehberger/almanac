@@ -77,6 +77,12 @@ paths:
         `event: token`, `event: citation`, `event: meta`, `event: done`
         (or `event: error`). Citations arrive inline at the position the
         model emitted them.
+
+        `as_principal` and `caller_external_id` assert an end-user identity and
+        require an API key with the `allow_identity_assertion` capability;
+        `as_principal` values must additionally be on the workspace's
+        demo-principal allowlist. Requests that assert an identity a key is not
+        entitled to receive `403`.
       tags: [Chat]
       requestBody:
         required: true
@@ -95,6 +101,11 @@ paths:
                 type: string
         '402':
           description: Workspace cost cap exceeded
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403':
+          description: The API key may not assert the requested principal or identity
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -133,13 +144,27 @@ paths:
   /v1/sources/{docId}:
     get:
       summary: Source metadata for a cited document — ACL-checked
-      description: Returns title, source URL, and connector for a document. Returns `404` if the caller's principal set does not grant access.
+      description: |
+        Returns title, source URL, and connector for a document. Returns `404`
+        if the caller's principal set does not grant access. Asserting
+        `as_principal` requires an API key with the `allow_identity_assertion`
+        capability and allowlisted principals, else `403`.
       operationId: getSource
       tags: [Chat]
       parameters:
         - { in: path, name: docId, required: true, schema: { type: string } }
       responses:
         '200': { description: Source }
+        '403':
+          description: The API key may not assert the requested principal
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: No such document or not visible to caller
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /v1/connectors:
     get:
@@ -171,7 +196,12 @@ paths:
   /v1/connectors/{id}/reindex:
     post:
       summary: Trigger a reindex
-      description: Queues an ingest run for the connector. `incremental` (default) only fetches changes since the last cursor; `full` re-fetches every document.
+      description: |
+        Queues an ingest run for the connector and returns immediately.
+        `incremental` (default) only fetches changes since the last cursor;
+        `full` re-fetches every document and reconciles source-side deletions.
+        The run is serialized per connector, so overlapping reindexes and
+        scheduled syncs cannot run concurrently.
       operationId: reindexConnector
       tags: [Connectors]
       parameters:
@@ -184,7 +214,16 @@ paths:
               properties:
                 mode: { type: string, enum: [incremental, full], default: incremental }
       responses:
-        '202': { description: Accepted }
+        '202':
+          description: Reindex queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, mode]
+                properties:
+                  status: { type: string, enum: [queued] }
+                  mode: { type: string, enum: [incremental, full] }
 
   /v1/ingest-runs:
     get:
@@ -245,7 +284,12 @@ paths:
         '200': { description: List }
     post:
       summary: Mint a new API key (secret returned once)
-      description: Creates a new API key with the given scope and optional IP allowlist. The full `alm_…` secret is returned exactly once in the response body.
+      description: |
+        Creates a new API key with the given scope and optional IP allowlist.
+        The full `alm_…` secret is returned exactly once in the response body.
+        Set `allow_identity_assertion` to let the key assert an end-user
+        identity via `as_principal` / `caller_external_id` on the chat and
+        source endpoints; leave it off for ordinary chat keys.
       operationId: createApiKey
       tags: [Admin]
       requestBody:
@@ -258,6 +302,7 @@ paths:
               properties:
                 name: { type: string }
                 scope: { type: string, enum: [chat_only, chat_and_feedback, admin_read, admin_write] }
+                allow_identity_assertion: { type: boolean, default: false }
                 ip_allowlist: { type: array, items: { type: string } }
                 expires_at: { type: string, format: date-time }
       responses:
